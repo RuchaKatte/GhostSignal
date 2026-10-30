@@ -1,6 +1,6 @@
-﻿"""Tests proving log line IDs are stable (same input always yields same ID)."""
+"""Tests proving log line IDs are stable (same input always yields same ID)."""
+
 import hashlib
-import pytest
 
 
 def make_log_id(service: str, timestamp_ns: int, message: str) -> str:

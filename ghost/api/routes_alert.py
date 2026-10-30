@@ -1,16 +1,15 @@
-﻿"""
+"""
 Alert webhook route - receives Alertmanager webhook payloads.
 Triggers the incident investigation pipeline asynchronously.
 """
+
 from __future__ import annotations
 
-import asyncio
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel, Field
 
 log = structlog.get_logger(service="ghost.alert")
@@ -56,8 +55,9 @@ class AlertmanagerPayload(BaseModel):
 
 async def _start_investigation(payload: AlertmanagerPayload) -> None:
     """Background task: start an investigation for the incoming alert."""
-    from ghost.storage.db import get_db
     from sqlalchemy import text
+
+    from ghost.storage.db import get_db
 
     firing = [a for a in payload.alerts if a.status == "firing"]
     if not firing:
@@ -65,7 +65,7 @@ async def _start_investigation(payload: AlertmanagerPayload) -> None:
         return
 
     alert = firing[0]
-    alert_time = datetime.now(timezone.utc)
+    alert_time = datetime.now(UTC)
 
     log.warning(
         "investigation_triggered",

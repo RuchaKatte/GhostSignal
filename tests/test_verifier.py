@@ -1,13 +1,13 @@
-﻿"""
+"""
 Tests for the evidence verifier.
 Proves fabricated log IDs are rejected and claim status is downgraded correctly.
 """
-import pytest
 
 
 # Minimal stub implementations to test verifier logic without full DB
 class StubBundle:
     """A bundle with a fixed set of known log IDs."""
+
     def __init__(self, log_ids: set[str], metric_ids: set[str] | None = None):
         self.log_ids = log_ids
         self.metric_ids = metric_ids or set()

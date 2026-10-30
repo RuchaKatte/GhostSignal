@@ -1,4 +1,5 @@
-﻿"""Tests for Drain3 log clustering integration."""
+"""Tests for Drain3 log clustering integration."""
+
 import pytest
 
 

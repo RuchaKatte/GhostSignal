@@ -1,7 +1,8 @@
-﻿"""
+"""
 PII and secret redaction - runs locally BEFORE any log text reaches an LLM.
 Redacts: IPs, emails, API keys/tokens, credit-card-like numbers, JWTs, UUIDs.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,7 +16,10 @@ _PATTERNS: list[tuple[str, str]] = [
     # JWT tokens (header.payload.signature)
     (r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", "[JWT]"),
     # Bearer / API key patterns (key=..., token=..., secret=..., password=...)
-    (r"(?i)(api[_\-]?key|token|secret|password|bearer|authorization)[=:\s]+['\"]?[A-Za-z0-9_\-\.]{16,}['\"]?", r"\1=[REDACTED]"),
+    (
+        r"(?i)(api[_\-]?key|token|secret|password|bearer|authorization)[=:\s]+['\"]?[A-Za-z0-9_\-\.]{16,}['\"]?",
+        r"\1=[REDACTED]",
+    ),
     # Credit-card-like numbers (13-19 digits, optionally space/dash separated)
     (r"\b(?:\d[\s\-]?){13,19}\b", "[CARD]"),
     # AWS-style access keys

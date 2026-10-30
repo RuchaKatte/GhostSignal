@@ -1,6 +1,7 @@
-﻿"""
+"""
 Investigations route - list and retrieve past investigations.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -35,5 +36,6 @@ async def get_investigation(inv_id: int) -> dict[str, Any]:
         result = row.fetchone()
         if not result:
             from fastapi import HTTPException
+
             raise HTTPException(status_code=404, detail="Investigation not found")
         return dict(result._mapping)

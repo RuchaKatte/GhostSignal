@@ -1,7 +1,8 @@
-﻿"""
+"""
 Ghost in the Logs - Main FastAPI application.
 Entry point that wires together all routes and middleware.
 """
+
 from __future__ import annotations
 
 import os
@@ -61,8 +62,9 @@ async def health():
 # ── Metrics (Prometheus) ───────────────────────────────────────────────────────
 @app.get("/metrics")
 async def metrics():
-    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     from fastapi.responses import Response
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 

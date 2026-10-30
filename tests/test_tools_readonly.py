@@ -1,15 +1,18 @@
-﻿"""
+"""
 Tests proving all agent tools are read-only (no mutations).
 Verifies tool schemas have no mutating operations and returns are read types.
 """
-import pytest
+
 import inspect
+
+import pytest
 
 
 def test_logs_tools_are_readonly():
     """Log tools must only query, never write."""
     try:
         from ghost.tools import logs_tools
+
         for name, fn in inspect.getmembers(logs_tools, inspect.isfunction):
             if name.startswith("_"):
                 continue
@@ -27,6 +30,7 @@ def test_metrics_tools_are_readonly():
     """Metrics tools must only query Prometheus."""
     try:
         from ghost.tools import metrics_tools
+
         for name, fn in inspect.getmembers(metrics_tools, inspect.isfunction):
             if name.startswith("_"):
                 continue
@@ -42,6 +46,7 @@ def test_deploy_tools_are_readonly():
     """Deploy tools must only fetch, not create or modify deploy records."""
     try:
         from ghost.tools import deploy_tools
+
         for name, fn in inspect.getmembers(deploy_tools, inspect.isfunction):
             if name.startswith("_"):
                 continue

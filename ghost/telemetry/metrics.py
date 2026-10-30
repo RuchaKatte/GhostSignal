@@ -1,10 +1,11 @@
-﻿"""
+"""
 Prometheus metrics for the Ghost investigator itself.
 Tracks agent performance, tool usage, and investigation outcomes.
 """
+
 from __future__ import annotations
 
-from prometheus_client import Counter, Gauge, Histogram, Summary
+from prometheus_client import Counter, Gauge, Histogram
 
 # ── Investigation metrics ──────────────────────────────────────────────────────
 INVESTIGATIONS_TOTAL = Counter(

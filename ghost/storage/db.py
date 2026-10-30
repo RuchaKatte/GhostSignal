@@ -2,11 +2,12 @@
 SQLite database initialization and async session management.
 All tables used by the Ghost investigator are created here on startup.
 """
+
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -37,9 +38,7 @@ def _get_engine():
 def _get_session_factory():
     global _async_session
     if _async_session is None:
-        _async_session = sessionmaker(
-            _get_engine(), class_=AsyncSession, expire_on_commit=False
-        )
+        _async_session = sessionmaker(_get_engine(), class_=AsyncSession, expire_on_commit=False)
     return _async_session
 
 

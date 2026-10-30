@@ -1,5 +1,5 @@
-﻿"""Tests for the PII redaction module."""
-import pytest
+"""Tests for the PII redaction module."""
+
 from ghost.ingest.redact import redact, redact_dict
 
 

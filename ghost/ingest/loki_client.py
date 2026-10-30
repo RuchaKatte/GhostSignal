@@ -2,6 +2,7 @@
 Loki client - queries LogQL against Grafana Loki.
 Used by the bundle builder to fetch logs for an incident window.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -50,12 +51,14 @@ class LokiClient:
         for stream in data.get("data", {}).get("result", []):
             labels = stream.get("stream", {})
             for ts_ns_str, message in stream.get("values", []):
-                entries.append({
-                    "timestamp_ns": int(ts_ns_str),
-                    "labels": labels,
-                    "message": message,
-                    "service": labels.get("service", labels.get("container", "unknown")),
-                })
+                entries.append(
+                    {
+                        "timestamp_ns": int(ts_ns_str),
+                        "labels": labels,
+                        "message": message,
+                        "service": labels.get("service", labels.get("container", "unknown")),
+                    }
+                )
         return entries
 
     async def labels(self) -> list[str]:
