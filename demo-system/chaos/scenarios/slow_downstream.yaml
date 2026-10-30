@@ -1,0 +1,30 @@
+﻿name: slow_downstream
+description: >
+  Payments worker introduces a 3-second artificial delay, causing gateway
+  timeouts and elevated p99 latency across the request path.
+
+actions:
+  - service: gateway
+    config:
+      extra_delay_ms: 3000
+  - service: payments-worker
+    config:
+      extra_delay_ms: 3000
+
+ground_truth:
+  root_cause_category: slow_downstream_dependency
+  root_cause_description: >
+    Payments worker experiencing a 3-second delay on all payment processing
+    calls. This propagates upstream, causing gateway p99 latency to spike
+    and eventually triggering timeouts.
+  onset_time_offset_seconds: 10
+  key_evidence_patterns:
+    - "slow_downstream_active"
+    - "payment_processing_seconds p99 > 3"
+    - "gateway_request_duration_seconds p99 > 3"
+  affected_services:
+    - payments-worker
+    - gateway
+  expected_metrics:
+    - payment_processing_seconds p99 > 3s
+    - gateway_request_duration_seconds p99 rising

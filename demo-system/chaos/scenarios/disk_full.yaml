@@ -1,0 +1,35 @@
+﻿name: disk_full
+description: >
+  Simulate disk pressure on orders-api by generating high error rates on
+  write operations, as if disk writes are failing due to ENOSPC. Services
+  log I/O errors and begin failing requests.
+
+actions:
+  - service: orders-api
+    config:
+      error_rate: 0.8
+      pool_timeout: 0.5
+  - service: payments-worker
+    config:
+      error_rate: 0.7
+
+ground_truth:
+  root_cause_category: disk_pressure
+  root_cause_description: >
+    Simulated disk full condition causing 80% of order writes to fail and
+    70% of payment writes to fail. Services log database errors that in a
+    real scenario would be ENOSPC on the PostgreSQL data directory.
+  onset_time_offset_seconds: 5
+  key_evidence_patterns:
+    - "db_error"
+    - "payment_failed"
+    - "orders_db_errors_total rising"
+    - "error_rate > 0.7"
+  affected_services:
+    - orders-api
+    - payments-worker
+    - postgres
+  expected_metrics:
+    - orders_db_errors_total spike
+    - payments_processed_total[failed] spike
+    - overall error rate > 70%

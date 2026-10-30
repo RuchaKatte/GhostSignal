@@ -1,0 +1,28 @@
+﻿# Default evaluation configuration
+model: qwen2.5:7b
+scenarios:
+  - conn_leak
+  - bad_deploy
+  - slow_downstream
+  - memory_leak
+ablations:
+  - name: default
+    description: Full pipeline
+    skeptic: true
+    rag: true
+    drain: true
+  - name: no_skeptic
+    description: No skeptic agent
+    skeptic: false
+    rag: true
+    drain: true
+  - name: no_rag
+    description: No RAG retrieval
+    skeptic: true
+    rag: false
+    drain: true
+  - name: no_drain
+    description: Raw logs, no Drain clustering
+    skeptic: true
+    rag: true
+    drain: false

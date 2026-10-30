@@ -1,0 +1,42 @@
+﻿name: Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Chaos scenario to evaluate"
+        required: false
+        default: "all"
+
+jobs:
+  eval:
+    name: Run Evaluation Suite
+    runs-on: ubuntu-latest
+    # Only run post-submission (requires a running stack)
+    if: github.event_name == "workflow_dispatch"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack
+        run: docker compose up -d
+        timeout-minutes: 10
+
+      - name: Wait for readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then break; fi
+            sleep 10
+          done
+
+      - name: Pull Ollama model
+        run: docker compose exec -T ollama ollama pull qwen2.5:7b
+
+      - name: Run evaluation
+        run: docker compose exec -T ghost python /app/eval/run_eval.py
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval/results/

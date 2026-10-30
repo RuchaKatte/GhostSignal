@@ -1,0 +1,30 @@
+﻿name: conn_leak
+description: >
+  Connection pool leak in orders-api. Connections are acquired and never released,
+  gradually exhausting the database connection pool until new requests timeout.
+
+actions:
+  - service: orders-api
+    config:
+      leak_connections: true
+      max_leak: 9
+      pool_timeout: 2.0
+
+ground_truth:
+  root_cause_category: resource_exhaustion
+  root_cause_description: >
+    Database connection pool exhausted due to connections being acquired and
+    not released. Pool max is 10, leak rate ~1 conn/request. After ~9 leaks
+    new requests timeout waiting for a connection.
+  onset_time_offset_seconds: 30
+  key_evidence_patterns:
+    - "connection_leaked"
+    - "db_pool_exhausted"
+    - "db_pool_timeout"
+    - "pool_saturation > 0.9"
+  affected_services:
+    - orders-api
+  expected_metrics:
+    - orders_db_pool_in_use rising to pool max
+    - orders_request_duration_seconds p99 rising sharply
+    - gateway_errors_total upstream_5xx increasing

@@ -1,0 +1,48 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost in the Logs - Live Haunting Feed</title>
+  <meta name="description" content="AI incident investigator powered by local LLMs. Watch investigations unfold in real time.">
+  <link rel="stylesheet" href="/static/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="skull-bg"></div>
+  <header class="navbar">
+    <div class="brand">
+      <span class="ghost-icon">👻</span>
+      <span class="brand-name">Ghost in the Logs</span>
+    </div>
+    <nav>
+      <a href="/" class="nav-link active">Feed</a>
+      <a href="/ofrenda" class="nav-link">Ofrenda</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>The Machine Whispers...</h1>
+      <p class="hero-sub">Listening for alerts. When your system fails at 2:13 AM, I will wake.</p>
+      <div class="status-indicator" id="status">
+        <span class="pulse"></span>
+        <span>Watching</span>
+      </div>
+    </section>
+
+    <section class="feed-section">
+      <h2>Recent Investigations</h2>
+      <div id="investigations-list" class="investigations-list">
+        <div class="empty-state">
+          <span class="ghost-big">👻</span>
+          <p>No incidents yet. The system rests...</p>
+          <p class="hint">Run <code>make chaos SCENARIO=conn_leak</code> to wake the ghost.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

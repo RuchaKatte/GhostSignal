@@ -1,0 +1,35 @@
+﻿name: bad_deploy
+description: >
+  A bad deployment reduces the connection pool max from 10 to 2, causing
+  immediate pool saturation under normal traffic. A deploy event is emitted.
+
+actions:
+  - service: orders-api
+    config:
+      pool_max: 2
+
+deploy_event:
+  service: orders-api
+  version: v1.1.0-bad
+  deployed_by: ci-pipeline
+  notes: "Reduced pool_max to 2 (configuration error)"
+
+ground_truth:
+  root_cause_category: bad_configuration_change
+  root_cause_description: >
+    Deployment of orders-api v1.1.0-bad reduced DB connection pool max from 10
+    to 2. At normal traffic levels (2 RPS), this causes immediate pool saturation
+    and request failures starting within seconds of the deploy.
+  onset_time_offset_seconds: 5
+  key_evidence_patterns:
+    - "deploy_event"
+    - "pool_size_changing"
+    - "db_pool_exhausted"
+    - "pool_max.*2"
+  affected_services:
+    - orders-api
+    - gateway
+  expected_metrics:
+    - orders_db_pool_size drops to 2
+    - orders_db_pool_in_use saturates immediately
+    - error rate spike at deploy time

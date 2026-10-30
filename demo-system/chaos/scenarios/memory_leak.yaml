@@ -1,0 +1,28 @@
+﻿name: memory_leak
+description: >
+  Payments worker accumulates memory at ~10KB/tick (every 2 seconds), logging
+  warnings when usage grows. Simulates a slow leak that degrades performance
+  over time without immediate errors.
+
+actions:
+  - service: payments-worker
+    config:
+      memory_leak: true
+      error_rate: 0.05
+
+ground_truth:
+  root_cause_category: memory_leak
+  root_cause_description: >
+    Payments worker is accumulating memory at ~10KB per processing cycle.
+    After several minutes, memory pressure causes increased GC pauses and
+    eventually payment failures. Logged warnings every 50 chunks (~500KB).
+  onset_time_offset_seconds: 60
+  key_evidence_patterns:
+    - "memory_usage_high"
+    - "payments_memory_bytes rising"
+    - "payment_failed"
+  affected_services:
+    - payments-worker
+  expected_metrics:
+    - payments_memory_bytes monotonically increasing
+    - payments_processed_total[failed] rising

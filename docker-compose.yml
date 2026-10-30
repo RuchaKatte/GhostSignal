@@ -1,0 +1,221 @@
+﻿# Ghost in the Logs - Full Stack Docker Compose
+# Start with: docker compose up -d
+# All services connect through the "ghost" network
+
+name: ghostsignal
+
+networks:
+  ghost:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  loki_data:
+  prometheus_data:
+  ghost_data:
+  ollama_data:
+
+services:
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    networks: [ghost]
+    environment:
+      POSTGRES_DB: ghostdemo
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: ghostpass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./demo-system/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ghost -d ghostdemo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Demo microservices ───────────────────────────────────────────────────────
+  gateway:
+    build: ./demo-system/gateway
+    networks: [ghost]
+    ports: ["8001:8001"]
+    environment:
+      ORDERS_API_URL: http://orders-api:8002
+      PAYMENTS_WORKER_URL: http://payments-worker:8003
+    depends_on:
+      orders-api:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      service: gateway
+
+  orders-api:
+    build: ./demo-system/orders-api
+    networks: [ghost]
+    ports: ["8002:8002"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ghostdemo
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: ghostpass
+      DB_POOL_MAX: "10"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import httpx; r=httpx.get('http://localhost:8002/health', timeout=2); exit(0 if r.status_code==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    labels:
+      service: orders-api
+
+  payments-worker:
+    build: ./demo-system/payments-worker
+    networks: [ghost]
+    ports: ["8003:8003"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ghostdemo
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: ghostpass
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      service: payments-worker
+
+  loadgen:
+    build: ./demo-system/loadgen
+    networks: [ghost]
+    environment:
+      GATEWAY_URL: http://gateway:8001
+      RPS: "2"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+    labels:
+      service: loadgen
+
+  chaos:
+    build: ./demo-system/chaos
+    networks: [ghost]
+    environment:
+      GATEWAY_URL: http://gateway:8001
+      ORDERS_API_URL: http://orders-api:8002
+      PAYMENTS_WORKER_URL: http://payments-worker:8003
+    depends_on:
+      - gateway
+      - orders-api
+      - payments-worker
+    labels:
+      service: chaos
+
+  # ── Observability stack ──────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.0.0
+    networks: [ghost]
+    ports: ["3100:3100"]
+    volumes:
+      - ./observability/loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/tmp/loki
+    command: -config.file=/etc/loki/config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    networks: [ghost]
+    ports: ["9090:9090"]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --storage.tsdb.retention.time=7d
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    networks: [ghost]
+    ports: ["9093:9093"]
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.2.1
+    networks: [ghost]
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: run /etc/alloy/config.alloy
+    depends_on:
+      loki:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Ollama (local LLM) ───────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    networks: [ghost]
+    ports: ["11434:11434"]
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # GPU support (uncomment if using NVIDIA GPU):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── Ghost investigator ───────────────────────────────────────────────────────
+  ghost:
+    build:
+      context: .
+      dockerfile: ghost/Dockerfile
+    networks: [ghost]
+    ports: ["8000:8000"]
+    volumes:
+      - ghost_data:/data
+      - .:/app  # mount for dev mode
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_DEFAULT_MODEL: qwen2.5:7b
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      LOKI_URL: http://loki:3100
+      PROMETHEUS_URL: http://prometheus:9090
+      GHOST_DB_PATH: /data/ghost.db
+      CHROMA_PATH: /data/chroma
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ghostdemo
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD: ghostpass
+    depends_on:
+      loki:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import httpx; r=httpx.get('http://localhost:8000/health', timeout=2); exit(0 if r.status_code==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10

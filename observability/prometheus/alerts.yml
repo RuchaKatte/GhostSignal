@@ -1,0 +1,117 @@
+﻿groups:
+  - name: ghost_demo_alerts
+    interval: 15s
+    rules:
+
+      # ── Error rate ──────────────────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: >
+          (
+            rate(gateway_errors_total[2m]) /
+            (rate(gateway_requests_total[2m]) + 0.001)
+          ) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: "High error rate on gateway (>10%)"
+          description: "Gateway error rate is {{ $value | humanizePercentage }} over the last 2 minutes."
+
+      - alert: CriticalErrorRate
+        expr: >
+          (
+            rate(gateway_errors_total[2m]) /
+            (rate(gateway_requests_total[2m]) + 0.001)
+          ) > 0.5
+        for: 30s
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: "Critical error rate on gateway (>50%)"
+          description: "Gateway error rate is {{ $value | humanizePercentage }}. Immediate investigation required."
+
+      # ── P99 latency ─────────────────────────────────────────────────────────
+      - alert: HighP99Latency
+        expr: >
+          histogram_quantile(0.99, rate(gateway_request_duration_seconds_bucket[5m])) > 1.0
+        for: 2m
+        labels:
+          severity: warning
+          service: gateway
+        annotations:
+          summary: "Gateway p99 latency > 1s"
+          description: "Gateway p99 latency is {{ $value | humanizeDuration }} over the last 5 minutes."
+
+      - alert: CriticalP99Latency
+        expr: >
+          histogram_quantile(0.99, rate(gateway_request_duration_seconds_bucket[5m])) > 3.0
+        for: 1m
+        labels:
+          severity: critical
+          service: gateway
+        annotations:
+          summary: "Gateway p99 latency > 3s (critical)"
+          description: "Gateway p99 latency is {{ $value | humanizeDuration }}."
+
+      # ── DB pool saturation ──────────────────────────────────────────────────
+      - alert: DBPoolSaturation
+        expr: >
+          (orders_db_pool_in_use / (orders_db_pool_size + 0.001)) > 0.8
+        for: 30s
+        labels:
+          severity: warning
+          service: orders-api
+        annotations:
+          summary: "DB connection pool > 80% utilized"
+          description: "DB pool is {{ $value | humanizePercentage }} full. Risk of pool exhaustion."
+
+      - alert: DBPoolExhausted
+        expr: >
+          (orders_db_pool_in_use / (orders_db_pool_size + 0.001)) > 0.95
+        for: 15s
+        labels:
+          severity: critical
+          service: orders-api
+        annotations:
+          summary: "DB connection pool nearly exhausted (>95%)"
+          description: "DB pool is {{ $value | humanizePercentage }} full. Pool exhaustion imminent."
+
+      # ── Orders API errors ───────────────────────────────────────────────────
+      - alert: OrdersAPIErrors
+        expr: >
+          rate(orders_db_errors_total[2m]) > 0.5
+        for: 1m
+        labels:
+          severity: warning
+          service: orders-api
+        annotations:
+          summary: "Orders API database errors"
+          description: "Database error rate: {{ $value }} errors/s."
+
+      # ── Payments failures ───────────────────────────────────────────────────
+      - alert: PaymentFailureRate
+        expr: >
+          (
+            rate(payments_processed_total{status="failed"}[2m]) /
+            (rate(payments_processed_total[2m]) + 0.001)
+          ) > 0.2
+        for: 1m
+        labels:
+          severity: warning
+          service: payments-worker
+        annotations:
+          summary: "Payment failure rate > 20%"
+          description: "Payment failure rate: {{ $value | humanizePercentage }}."
+
+      # ── Memory ──────────────────────────────────────────────────────────────
+      - alert: PaymentsMemoryLeak
+        expr: payments_memory_bytes > 52428800  # 50MB
+        for: 2m
+        labels:
+          severity: warning
+          service: payments-worker
+        annotations:
+          summary: "Payments worker memory usage growing (potential leak)"
+          description: "Memory usage: {{ $value | humanize1024 }}B."

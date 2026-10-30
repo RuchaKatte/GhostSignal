@@ -1,0 +1,72 @@
+﻿// Grafana Alloy configuration - ships container logs to Loki
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// Discover all docker containers
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Relabel: keep only our demo system and ghost containers
+discovery.relabel "demo_containers" {
+  targets = discovery.docker.containers.targets
+
+  // Extract container name as label
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Map container name to service name
+  rule {
+    source_labels = ["container"]
+    regex         = "ghostsignal-(gateway|orders-api|payments-worker|loadgen|chaos|ghost)-.*"
+    target_label  = "service"
+    replacement   = "${1}"
+  }
+
+  // Add environment label
+  rule {
+    target_label = "env"
+    replacement  = "demo"
+  }
+}
+
+// Tail docker container logs
+loki.source.docker "docker_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.demo_containers.output
+  forward_to = [loki.process.json_logs.receiver]
+}
+
+// Process JSON logs - extract structured fields
+loki.process "json_logs" {
+  forward_to = [loki.write.loki.receiver]
+
+  // Try to parse JSON and promote fields to labels
+  stage.json {
+    expressions = {
+      level   = "level",
+      service = "service",
+    }
+  }
+
+  // Promote service label from JSON body
+  stage.labels {
+    values = {
+      level   = "level",
+      service = "service",
+    }
+  }
+}
+
+// Write to Loki
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
