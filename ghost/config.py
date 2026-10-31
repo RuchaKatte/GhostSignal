@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ollama_host: str = Field("http://ollama:11434", alias="OLLAMA_HOST")
     ollama_default_model: str = Field("qwen2.5:7b", alias="OLLAMA_DEFAULT_MODEL")
     ollama_embed_model: str = Field("nomic-embed-text", alias="OLLAMA_EMBED_MODEL")
+    ollama_timeout_seconds: float = Field(120.0, alias="OLLAMA_TIMEOUT_SECONDS")
 
     # Loki
     loki_url: str = Field("http://loki:3100", alias="LOKI_URL")

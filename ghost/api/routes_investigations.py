@@ -7,17 +7,18 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 
 from ghost.storage.db import get_db
+from ghost.storage.results import get_investigation_result
 
 log = structlog.get_logger(service="ghost.investigations")
 router = APIRouter(prefix="/api", tags=["investigations"])
 
 
 @router.get("/investigations")
-async def list_investigations(limit: int = 20) -> list[dict[str, Any]]:
+async def list_investigations(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
     async with get_db() as db:
         rows = await db.execute(
             text("SELECT * FROM investigations ORDER BY created_at DESC LIMIT :limit"),
@@ -35,7 +36,9 @@ async def get_investigation(inv_id: int) -> dict[str, Any]:
         )
         result = row.fetchone()
         if not result:
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404, detail="Investigation not found")
-        return dict(result._mapping)
+        investigation = dict(result._mapping)
+    saved_result = await get_investigation_result(inv_id)
+    if saved_result is not None:
+        investigation["investigation_result"] = saved_result
+    return investigation

@@ -1,6 +1,45 @@
 """Tests for Drain3 log clustering integration."""
 
+import hashlib
+
 import pytest
+
+from ghost.ingest.drain import LogClusterer
+
+
+def test_fallback_cluster_and_log_ids_are_stable() -> None:
+    clusterer = LogClusterer()
+    clusterer._miner = None
+
+    clusters = clusterer.cluster(["database unavailable"])
+    digest = hashlib.sha256(b"database unavailable").hexdigest()[:16]
+
+    assert clusters[0]["cluster_id"] == f"cluster:{digest}"
+    assert clusters[0]["log_ids"] == [f"unknown:{digest}"]
+
+
+def test_fallback_cluster_normalizes_service_and_nanosecond_timestamps() -> None:
+    clusterer = LogClusterer()
+    clusterer._miner = None
+
+    clusters = clusterer.cluster(
+        [
+            {
+                "message": "database unavailable",
+                "labels": {"service": "orders-api"},
+                "timestamp_ns": 1_767_225_600_000_000_000,
+            },
+            {
+                "message": "database unavailable",
+                "service": "gateway",
+                "timestamp_ns": 1_767_225_601_000_000_000,
+            },
+        ]
+    )
+
+    assert clusters[0]["services"] == ["gateway", "orders-api"]
+    assert clusters[0]["first_seen"] == "2026-01-01T00:00:00+00:00"
+    assert clusters[0]["last_seen"] == "2026-01-01T00:00:01+00:00"
 
 
 def test_drain_clusters_similar_messages():

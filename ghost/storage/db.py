@@ -51,6 +51,7 @@ _SCHEMA = [
         service     TEXT DEFAULT '',
         summary     TEXT DEFAULT '',
         alert_time  TEXT,
+        fingerprint TEXT,
         status      TEXT DEFAULT 'pending',
         root_cause  TEXT,
         narrative   TEXT,
@@ -145,6 +146,15 @@ _SCHEMA = [
         FOREIGN KEY (investigation_id) REFERENCES investigations(id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS investigation_results (
+        investigation_id INTEGER PRIMARY KEY,
+        bundle_json     TEXT NOT NULL,
+        report_json     TEXT NOT NULL,
+        updated_at      TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (investigation_id) REFERENCES investigations(id)
+    )
+    """,
 ]
 
 
@@ -154,6 +164,17 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         for stmt in _SCHEMA:
             await conn.execute(text(stmt))
+        investigation_columns = await conn.execute(text("PRAGMA table_info(investigations)"))
+        columns = {row[1] for row in investigation_columns.fetchall()}
+        if "fingerprint" not in columns:
+            await conn.execute(text("ALTER TABLE investigations ADD COLUMN fingerprint TEXT"))
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_investigations_fingerprint "
+                "ON investigations(fingerprint) "
+                "WHERE fingerprint IS NOT NULL AND fingerprint != ''"
+            )
+        )
 
 
 @asynccontextmanager

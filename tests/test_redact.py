@@ -50,3 +50,17 @@ def test_redact_dict():
     assert "[EMAIL]" in result["email"]
     assert result["count"] == 5
     assert "[REDACTED]" in result["nested"]["key"]
+
+
+def test_redact_dict_preserves_numeric_evidence_identifiers() -> None:
+    record = {
+        "log_id": "gateway:1767225601000000000:abcd1234",
+        "metric_id": "metric:1234567890123456",
+        "message": "card number 4111111111111111",
+    }
+
+    result = redact_dict(record)
+
+    assert result["log_id"] == record["log_id"]
+    assert result["metric_id"] == record["metric_id"]
+    assert "[CARD]" in result["message"]

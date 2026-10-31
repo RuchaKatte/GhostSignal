@@ -197,7 +197,7 @@ services:
       - .:/app  # mount for dev mode
     environment:
       OLLAMA_HOST: http://ollama:11434
-      OLLAMA_DEFAULT_MODEL: qwen2.5:7b
+      OLLAMA_DEFAULT_MODEL: ${OLLAMA_DEFAULT_MODEL:-qwen2.5:7b}
       OLLAMA_EMBED_MODEL: nomic-embed-text
       LOKI_URL: http://loki:3100
       PROMETHEUS_URL: http://prometheus:9090
@@ -211,6 +211,10 @@ services:
     depends_on:
       loki:
         condition: service_healthy
+      prometheus:
+        condition: service_started
+      ollama:
+        condition: service_started
       postgres:
         condition: service_healthy
     restart: unless-stopped

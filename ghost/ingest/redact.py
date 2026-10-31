@@ -1,53 +1,66 @@
-"""
-PII and secret redaction - runs locally BEFORE any log text reaches an LLM.
-Redacts: IPs, emails, API keys/tokens, credit-card-like numbers, JWTs, UUIDs.
-"""
+"""PII and secret redaction for incident evidence."""
 
 from __future__ import annotations
 
 import re
+from typing import Any
 
-# ── Regex patterns ─────────────────────────────────────────────────────────────
-_PATTERNS: list[tuple[str, str]] = [
-    # IPv4 addresses
-    (r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[IP]"),
-    # Email addresses
-    (r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b", "[EMAIL]"),
-    # JWT tokens (header.payload.signature)
-    (r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", "[JWT]"),
-    # Bearer / API key patterns (key=..., token=..., secret=..., password=...)
-    (
-        r"(?i)(api[_\-]?key|token|secret|password|bearer|authorization)[=:\s]+['\"]?[A-Za-z0-9_\-\.]{16,}['\"]?",
-        r"\1=[REDACTED]",
-    ),
-    # Credit-card-like numbers (13-19 digits, optionally space/dash separated)
-    (r"\b(?:\d[\s\-]?){13,19}\b", "[CARD]"),
-    # AWS-style access keys
-    (r"\b(AKIA|AIPA|ASIA)[A-Z0-9]{16}\b", "[AWS_KEY]"),
-    # UUIDs (optionally redact; kept here as reference - commented out by default)
-    # (r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "[UUID]"),
-]
+_IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
+_JWT_RE = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+")
+_AWS_KEY_RE = re.compile(r"\b(?:AKIA|AIPA|ASIA)[A-Z0-9]{16}\b")
+_CARD_RE = re.compile(r"\b(?:\d[\s\-]?){13,19}\b")
+_AUTH_RE = re.compile(
+    r"(?i)(authorization|auth|x-api-key|api[_-]?key|token|secret|password|bearer)\s*[:=]\s*['\"]?([A-Za-z0-9._~+/=\-:]{8,})['\"]?",
+    re.IGNORECASE,
+)
+_KEY_VALUE_RE = re.compile(
+    r"(?i)(\b(?:api[_-]?key|token|secret|password|session|cookie|refresh[_-]?token)\b)\s*[:=]\s*['\"]?([A-Za-z0-9._~+/=\-:]{8,})['\"]?",
+    re.IGNORECASE,
+)
+_IDENTIFIER_FIELDS = {
+    "cluster_id",
+    "evidence_id",
+    "evidence_ids",
+    "log_id",
+    "log_ids",
+    "metric_id",
+    "metric_ids",
+}
 
-_COMPILED = [(re.compile(p), r) for p, r in _PATTERNS]
+
+def _redact_auth_header(match: re.Match[str]) -> str:
+    label = match.group(1)
+    return f"{label}=[REDACTED]"
 
 
 def redact(text: str) -> str:
-    """Return a copy of *text* with PII/secrets replaced by placeholders."""
-    for pattern, replacement in _COMPILED:
-        text = pattern.sub(replacement, text)
-    return text
+    """Return a copy of *text* with sensitive values replaced by placeholders."""
+    if not isinstance(text, str) or text == "":
+        return text
+
+    redacted = text
+    redacted = _AUTH_RE.sub(_redact_auth_header, redacted)
+    redacted = _KEY_VALUE_RE.sub(r"\1=[REDACTED]", redacted)
+    redacted = _JWT_RE.sub("[JWT]", redacted)
+    redacted = _EMAIL_RE.sub("[EMAIL]", redacted)
+    redacted = _IP_RE.sub("[IP]", redacted)
+    redacted = _AWS_KEY_RE.sub("[AWS_KEY]", redacted)
+    redacted = _CARD_RE.sub("[CARD]", redacted)
+    return redacted
 
 
-def redact_dict(obj: dict) -> dict:
-    """Recursively redact string values in a dict."""
-    result = {}
-    for k, v in obj.items():
-        if isinstance(v, str):
-            result[k] = redact(v)
-        elif isinstance(v, dict):
-            result[k] = redact_dict(v)
-        elif isinstance(v, list):
-            result[k] = [redact(x) if isinstance(x, str) else x for x in v]
-        else:
-            result[k] = v
-    return result
+def redact_dict(obj: Any) -> Any:
+    """Recursively redact sensitive values in nested dict/list structures."""
+    if isinstance(obj, str):
+        return redact(obj)
+    if isinstance(obj, dict):
+        return {
+            key: value if key in _IDENTIFIER_FIELDS else redact_dict(value)
+            for key, value in obj.items()
+        }
+    if isinstance(obj, list):
+        return [redact_dict(value) for value in obj]
+    if isinstance(obj, tuple):
+        return tuple(redact_dict(value) for value in obj)
+    return obj
