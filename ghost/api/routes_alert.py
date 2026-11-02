@@ -6,18 +6,20 @@ Triggers incident collection and investigation as a background task.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
 import structlog
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from ghost.agents.base import AgentResponseError
+from ghost.config import get_settings
 from ghost.ingest.collector import collect_incident_bundle
 from ghost.ingest.redact import redact
 from ghost.llm.client import LLMError
@@ -200,15 +202,42 @@ async def _start_investigation(payload: AlertmanagerPayload) -> None:
     """Run collection and analysis for all firing alerts in a webhook group."""
     for alert in payload.alerts:
         if alert.status == "firing":
-            await _process_alert(alert)
+            try:
+                await _process_alert(alert)
+            except (
+                AgentResponseError,
+                LLMError,
+                SQLAlchemyError,
+                httpx.HTTPError,
+                OSError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                log.error(
+                    "alert_investigation_failed",
+                    fingerprint=_fingerprint(alert),
+                    error_type=type(exc).__name__,
+                )
 
 
 @router.post("/alert", status_code=202)
 async def receive_alert(
     payload: AlertmanagerPayload,
     background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> dict[str, Any]:
     """Validate an Alertmanager webhook and queue any firing alerts."""
+    expected_secret = get_settings().alert_webhook_secret
+    scheme, separator, credentials = (authorization or "").partition(" ")
+    bearer_secret = credentials.strip() if separator and scheme.casefold() == "bearer" else None
+    if (
+        not expected_secret
+        or bearer_secret is None
+        or not hmac.compare_digest(bearer_secret.encode("utf-8"), expected_secret.encode("utf-8"))
+    ):
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+
     firing_count = sum(alert.status == "firing" for alert in payload.alerts)
     log.info(
         "alert_received",

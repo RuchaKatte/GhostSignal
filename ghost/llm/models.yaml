@@ -1,0 +1,9 @@
+default_model: qwen2.5:3b
+models:
+  - name: qwen2.5:3b
+    description: Small instruction model recommended for local CPU development.
+    install_command: ollama pull qwen2.5:3b
+  - name: qwen2.5:7b
+    description: Larger model for systems with more available memory.
+    install_command: ollama pull qwen2.5:7b
+structured_output: json

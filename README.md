@@ -37,7 +37,7 @@ bundle; there is no automatic deployment database or historical RAG integration.
 
 ```shell
 docker compose up -d --build
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull qwen2.5:3b
 ```
 
 `OLLAMA_DEFAULT_MODEL` defaults to the value in `ghost/config.py` and can be
@@ -45,6 +45,9 @@ overridden in the environment; pull that selected model if you change the defaul
 The Compose service is available at
 `http://localhost:8000`; Ollama, Loki, and Prometheus are available on their
 respective mapped ports. The model pull is a one-time step per Ollama data volume.
+The Alertmanager webhook uses a bearer token. Set `ALERT_WEBHOOK_SECRET` and keep
+the `credentials` value in `observability/alertmanager/alertmanager.yml` identical;
+the checked-in `changeme` value is only for local development.
 
 ## Run the backend locally
 
@@ -71,6 +74,7 @@ variables and `.env`. Relevant settings include:
 | `LOKI_URL` | Loki HTTP base URL |
 | `PROMETHEUS_URL` | Prometheus HTTP base URL |
 | `GHOST_DB_PATH` | SQLite database path |
+| `ALERT_WEBHOOK_SECRET` | Bearer token required for Alertmanager webhooks |
 
 No API key is needed for local Ollama. The LLM client does not select or download a
 model on its own; the configured model must already be available in Ollama.
@@ -82,13 +86,15 @@ Send an Alertmanager-compatible firing alert:
 ```shell
 curl.exe -X POST http://localhost:8000/webhook/alert `
   -H "Content-Type: application/json" `
+  -H "Authorization: Bearer changeme" `
   -d "{\"status\":\"firing\",\"alerts\":[{\"status\":\"firing\",\"labels\":{\"alertname\":\"HighErrorRate\",\"severity\":\"warning\",\"service\":\"gateway\"},\"annotations\":{\"summary\":\"Gateway error rate is high\"},\"startsAt\":\"2026-10-31T12:00:00Z\",\"endsAt\":\"0001-01-01T00:00:00Z\",\"fingerprint\":\"demo-high-error-rate\"}]}"
 ```
 
 The endpoint responds with `202 Accepted`; collection and investigation run as a
 background task. List investigations at `GET /api/investigations`, then retrieve
-the record, saved bundle, and report at `GET /api/investigations/{id}`. `/health`
-reports backend health.
+the record, saved bundle, and report at `GET /api/investigations/{id}`. Redacted
+individual evidence is available at `GET /api/investigations/{id}/evidence`, and
+completed incident memories at `GET /api/ofrenda`. `/health` reports backend health.
 
 ## Testing and linting
 

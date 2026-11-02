@@ -144,6 +144,15 @@ async def test_orchestrator_rejects_fabricated_ids_and_generates_structured_repo
     assert report["skeptic_reviews"][0]["claim_id"] == "hypothesis-1"
     assert report["affected_services"] == ["gateway"]
     assert report["pipeline_status"] == "completed"
+    assert report["completed_stages"] == [
+        "triage",
+        "log_analysis",
+        "metric_analysis",
+        "hypothesis_generation",
+        "skeptical_review",
+        "narration",
+    ]
+    assert report["failed_stage"] is None
     assert report["confidence_level"] == "medium"
     assert "secret.person@example.com" not in "\n".join(llm.prompts)
 
@@ -163,6 +172,8 @@ async def test_llm_failure_yields_explicit_uncertainty_and_persists_partial_repo
     report = await orchestrator.investigate(_bundle(), investigation_id=23)
 
     assert report["pipeline_status"] == "partial"
+    assert report["completed_stages"] == []
+    assert report["failed_stage"] == "triage"
     assert "Insufficient evidence" in report["incident_summary"]
     assert any("LLMConnectionError" in warning for warning in report["data_quality_warnings"])
     assert saved[0][0] == 23

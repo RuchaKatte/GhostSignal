@@ -1,10 +1,11 @@
 ﻿# Default evaluation configuration
-model: qwen2.5:7b
+model: qwen2.5:3b
 scenarios:
   - conn_leak
   - bad_deploy
   - slow_downstream
   - memory_leak
+  - disk_full
 ablations:
   - name: default
     description: Full pipeline

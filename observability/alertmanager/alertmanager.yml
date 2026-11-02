@@ -15,6 +15,10 @@ receivers:
         send_resolved: true
         http_config:
           follow_redirects: true
+          authorization:
+            type: Bearer
+            # Keep in sync with ALERT_WEBHOOK_SECRET in the Ghost environment.
+            credentials: changeme
         max_alerts: 10
 
 inhibit_rules:

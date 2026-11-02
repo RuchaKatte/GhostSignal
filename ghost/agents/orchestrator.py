@@ -52,7 +52,9 @@ class InvestigationOrchestrator:
         safe_bundle = self._sanitize_bundle(bundle)
         tools = register_bundle_tools(safe_bundle)
         warnings = list(safe_bundle.data_quality_warnings)
-        pipeline_status = "completed"
+        pipeline_status = "partial" if warnings else "completed"
+        completed_stages: list[str] = []
+        current_stage: str | None = None
         triage: dict[str, Any] = {}
         log_output: dict[str, Any] = {}
         metric_output: dict[str, Any] = {}
@@ -61,9 +63,16 @@ class InvestigationOrchestrator:
         narration: dict[str, Any] = {}
 
         try:
+            current_stage = "triage"
             triage = await self.triage.run(safe_bundle)
+            completed_stages.append(current_stage)
+            current_stage = "log_analysis"
             log_output = await self.log_analyst.run(safe_bundle, tools)
+            completed_stages.append(current_stage)
+            current_stage = "metric_analysis"
             metric_output = await self.metrics_analyst.run(safe_bundle, tools)
+            completed_stages.append(current_stage)
+            current_stage = "hypothesis_generation"
             log_findings = self._validate_findings(
                 log_output.get("findings"), "log-finding", safe_bundle, warnings
             )
@@ -78,15 +87,20 @@ class InvestigationOrchestrator:
             hypotheses = self._validate_hypotheses(
                 raw_hypotheses.get("hypotheses"), safe_bundle, warnings
             )
+            completed_stages.append(current_stage)
+            current_stage = "skeptical_review"
             skeptic_output = await self.skeptic.run(
                 hypotheses, self._evidence_summary(log_findings, metric_findings)
             )
             reviews = self._validate_reviews(skeptic_output.get("reviews"), hypotheses)
+            completed_stages.append(current_stage)
+            current_stage = "narration"
             narration = await self.narrator.run(
                 self._report_context(
                     safe_bundle, triage, log_findings, metric_findings, hypotheses, reviews
                 )
             )
+            completed_stages.append(current_stage)
         except (LLMError, AgentResponseError) as exc:
             pipeline_status = "partial"
             warnings.append(f"AI investigation did not complete: {type(exc).__name__}.")
@@ -108,6 +122,8 @@ class InvestigationOrchestrator:
             narration,
             warnings,
             pipeline_status,
+            completed_stages,
+            current_stage if pipeline_status == "partial" else None,
         )
         if investigation_id is not None and self.result_store is not None:
             await self.result_store(investigation_id, safe_bundle, report)
@@ -357,6 +373,8 @@ class InvestigationOrchestrator:
         narration: dict[str, Any],
         warnings: list[str],
         pipeline_status: str,
+        completed_stages: list[str],
+        failed_stage: str | None,
     ) -> dict[str, Any]:
         ranked = sorted(
             hypotheses,
@@ -458,4 +476,6 @@ class InvestigationOrchestrator:
             "data_quality_warnings": list(dict.fromkeys(warnings)),
             "collection_metadata": bundle.collection_metadata,
             "pipeline_status": pipeline_status,
+            "completed_stages": completed_stages,
+            "failed_stage": failed_stage,
         }

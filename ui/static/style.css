@@ -209,3 +209,78 @@ nav { display: flex; gap: 1.5rem; }
   border-radius: 4px;
   color: var(--marigold);
 }
+
+.detail-card {
+  display: grid;
+  gap: 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.detail-card h1, .detail-card h2 {
+  font-family: ''Crimson Pro'', serif;
+  color: var(--marigold);
+}
+
+.detail-card h2 {
+  margin-top: 1rem;
+  font-size: 1.4rem;
+}
+
+.detail-card h3 {
+  color: var(--ghost);
+  margin-top: 0.5rem;
+}
+
+.claim-card {
+  padding: 1rem;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.claim-card p, .detail-card li { line-height: 1.7; }
+.claim-card p { margin-top: 0.5rem; }
+.muted, .load-error { color: var(--text-dim); }
+.load-error { padding: 1rem; }
+
+.back-link { color: var(--ghost); text-decoration: none; }
+.back-link:hover { color: var(--marigold); }
+
+.timeline, .evidence-list {
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.timeline li, .evidence-list li {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  background: var(--bg3);
+  border-left: 2px solid var(--ghost);
+  overflow-wrap: anywhere;
+}
+
+.timeline time, .evidence-list time { color: var(--text-dim); font-size: 0.8rem; }
+.evidence-id {
+  display: inline-block;
+  color: var(--marigold);
+  background: rgba(245,166,35,0.08);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.stage-list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.stage-chip {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(74,222,128,0.3);
+  border-radius: 100px;
+  color: var(--green);
+  font-size: 0.75rem;
+}

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Ollama
     ollama_host: str = Field("http://ollama:11434", alias="OLLAMA_HOST")
-    ollama_default_model: str = Field("qwen2.5:7b", alias="OLLAMA_DEFAULT_MODEL")
+    ollama_default_model: str = Field("qwen2.5:3b", alias="OLLAMA_DEFAULT_MODEL")
     ollama_embed_model: str = Field("nomic-embed-text", alias="OLLAMA_EMBED_MODEL")
     ollama_timeout_seconds: float = Field(120.0, alias="OLLAMA_TIMEOUT_SECONDS")
 

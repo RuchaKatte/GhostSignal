@@ -94,3 +94,28 @@ async def test_http_errors_and_empty_prompts_are_rejected(
         await client.generate("prompt")
     with pytest.raises(ValueError, match="prompt"):
         await client.generate(" ")
+
+
+@pytest.mark.asyncio
+async def test_structured_responses_and_completion_status_are_validated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeAsyncClient(_response({"model": "test", "response": "not-json", "done": True}))
+    monkeypatch.setattr("ghost.llm.client.httpx.AsyncClient", lambda **_kwargs: fake)
+    with pytest.raises(LLMResponseError, match="structured JSON"):
+        await OllamaClient(base_url="http://ollama", model="test").generate(
+            "prompt",
+            format="json",
+        )
+
+    fake.response = _response({"model": "test", "response": '{"ok": true}', "done": "false"})
+    with pytest.raises(LLMResponseError, match="completion status"):
+        await OllamaClient(base_url="http://ollama", model="test").generate("prompt")
+
+
+def test_ollama_rejects_invalid_configuration_and_request_options() -> None:
+    with pytest.raises(ValueError, match="timeout"):
+        OllamaClient(base_url="http://ollama", model="test", timeout=True)
+
+    with pytest.raises(ValueError, match="model"):
+        OllamaClient(base_url="http://ollama", model="")
